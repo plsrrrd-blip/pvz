@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>ПВЗ — мини-система</title>
+<style>
+:root{--bg:#f3f5f9;--card:#fff;--ink:#172033;--muted:#718096;--line:#e5eaf1;--blue:#315efb;--green:#16a36a;--red:#e34b5b;--amber:#d88a16}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:#111827;color:white;padding:20px 18px 18px;position:sticky;top:0;z-index:5}header small{color:#aeb9cc}header h1{font-size:22px;margin:3px 0 0}
+main{max-width:760px;margin:auto;padding:16px 14px 100px}.screen{display:none}.screen.active{display:block}
+h2{font-size:21px;margin:8px 0 14px}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{border:0;background:var(--card);border-radius:18px;padding:20px 15px;text-align:left;min-height:112px;box-shadow:0 3px 14px #18243a0c;color:var(--ink);font:inherit}
+.tile b{display:block;font-size:17px;margin-top:12px}.tile span{font-size:24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:16px;margin:12px 0}
+label{display:block;font-weight:600;margin:13px 0 6px}input,textarea,select{width:100%;padding:13px;border:1px solid #d9e0eb;border-radius:11px;font:inherit;background:#fff;color:var(--ink)}
+textarea{min-height:75px;resize:vertical}.btn{border:0;border-radius:12px;padding:13px 16px;font:600 15px inherit;cursor:pointer;background:var(--blue);color:white;width:100%;margin-top:12px}
+.btn.secondary{background:#eaf0ff;color:#244bd4}.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.dark{background:#273449}.btn.small{width:auto;padding:9px 12px;margin:4px 4px 4px 0;font-size:13px}
+.row{display:flex;gap:9px}.row>*{flex:1}.pill{display:inline-block;padding:5px 9px;border-radius:20px;background:#edf1f7;color:#48566b;font-size:12px;font-weight:700}
+.pill.green{background:#e2f7ed;color:#128354}.pill.red{background:#ffeaec;color:#c53545}.pill.amber{background:#fff3db;color:#a86a09}
+.item{padding:13px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}.item strong{display:block;margin-bottom:4px}.amount{font-size:24px;font-weight:800}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:10}
+nav button{border:0;background:none;color:#778397;font:12px inherit;padding:5px;flex:1}nav button.active{color:var(--blue);font-weight:800}nav span{display:block;font-size:19px;margin-bottom:3px}
+.codebox{display:flex;justify-content:center;align-items:center;min-height:150px;background:#fff;border:1px dashed #ccd5e2;border-radius:12px;padding:12px;margin-top:8px;overflow:hidden}
+#qr canvas,#qr img{max-width:100%;height:auto!important}#barcode svg{max-width:100%;height:auto}
+.notice{padding:12px;border-radius:12px;background:#fff7e5;color:#87570b;font-size:13px;line-height:1.4;margin:12px 0}
+.hidden{display:none!important}.camera{width:100%;border-radius:12px;background:#111;max-height:280px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#f6f8fc;border-radius:12px;padding:12px}.stat b{display:block;font-size:21px}
+@media(min-width:600px){main{padding-top:24px}.grid{grid-template-columns:repeat(4,1fr)}}
+@media print{header,nav,.no-print{display:none!important}body{background:white}.screen{display:none!important}#printArea{display:block!important}}
+</style>
+</head>
+<body>
+<header><small>МИНИ-СИСТЕМА ПУНКТА ВЫДАЧИ</small><h1>ПВЗ · Рабочее место</h1></header>
+<main>
+<section id="home" class="screen active">
+<h2>Главный экран</h2>
+<div class="grid">
+<button class="tile" onclick="show('orders')"><span>📦</span><b>Заказы</b></button>
+<button class="tile" onclick="show('issue')"><span>📤</span><b>Выдача</b></button>
+<button class="tile" onclick="show('returns')"><span>↩️</span><b>Возвраты</b></button>
+<button class="tile" onclick="show('operations')"><span>📋</span><b>Операции</b></button>
+</div>
+<div class="card"><h3 style="margin-top:0">Активные заказы</h3><div class="stats"><div class="stat"><b id="sActive">0</b><small>Ожидают</small></div><div class="stat"><b id="sDone">0</b><small>Выданы</small></div><div class="stat"><b id="sReturn">0</b><small>Возвраты</small></div></div></div>
+<div class="card"><h3 style="margin-top:0">Статусы заказов</h3><div id="statusSummary" class="muted">Пока нет заказов</div></div>
+</section>
+
+<section id="orders" class="screen">
+<h2>Заказы</h2>
+<button class="btn" onclick="show('create')">＋ Создать заказ</button>
+<div class="card"><h3 style="margin-top:0">Все заказы</h3><div id="orderList" class="muted">Заказов пока нет</div></div>
+</section>
+
+<section id="create" class="screen">
+<h2>Создать заказ</h2>
+<div class="card">
+<label for="recipient">Получатель</label><input id="recipient" placeholder="ФИО получателя" autocomplete="name">
+<label for="description">Что за товар</label><textarea id="description" placeholder="Например: наушники, чехол для телефона"></textarea>
+<label for="price">Итоговая сумма, ₽</label><input id="price" type="number" min="0" step="0.01" placeholder="0">
+<button class="btn" onclick="createOrder()">Сохранить данные</button>
+</div><div id="createdResult"></div>
+</section>
+
+<section id="issue" class="screen">
+<h2>Выдача заказа</h2>
+<div class="card">
+<p class="muted" style="margin-top:0">Отсканируйте штрихкод коробки или введите номер вручную.</p>
+<button class="btn secondary" onclick="startCamera()">📷 Открыть камеру</button>
+<video id="video" class="camera hidden" playsinline></video>
+<div class="row"><input id="scanInput" placeholder="Номер / штрихкод заказа"><button class="btn" style="width:115px;margin-top:0" onclick="findOrder()">Найти</button></div>
+<div id="issueResult"></div>
+</div>
+</section>
+
+<section id="returns" class="screen">
+<h2>Возвраты</h2><div class="card"><div id="returnList" class="muted">Возвратов пока нет</div></div>
+</section>
+
+<section id="operations" class="screen">
+<h2>Операции</h2>
+<div class="card">
+<div class="item"><strong>Создание заказа</strong><span class="muted">Регистрация получателя, товара и суммы</span></div>
+<div class="item"><strong>Выдача заказа</strong><span class="muted">Проверка заказа и подтверждение оплаты</span></div>
+<div class="item"><strong>Отказ / возврат</strong><span class="muted">Перевод заказа в список возвратов</span></div>
+<div class="item"><strong>Хранилище</strong><span class="muted">Данные сохраняются в памяти браузера на этом устройстве</span></div>
+</div>
+<div class="card"><button class="btn secondary" onclick="exportData()">Скачать резервную копию JSON</button><button class="btn red" onclick="clearAll()">Удалить все данные</button></div>
+</section>
+<div id="printArea" class="hidden"></div>
+</main>
+<nav>
+<button class="active" data-page="home" onclick="show('home')"><span>⌂</span>Главная</button>
+<button data-page="orders" onclick="show('orders')"><span>▣</span>Заказы</button>
+<button data-page="issue" onclick="show('issue')"><span>⇧</span>Выдача</button>
+<button data-page="returns" onclick="show('returns')"><span>↩</span>Возврат</button>
+<button data-page="operations" onclick="show('operations')"><span>☷</span>Операции</button>
+</nav>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const KEY='pvz_mini_orders_v1'; let orders=load(), stream=null, current=null;
+function load(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return []}}
+function save(){localStorage.setItem(KEY,JSON.stringify(orders));render()}
+function show(id){stopCamera();document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===id));render();window.scrollTo(0,0)}
+function newId(){return 'PVZ-'+new Date().toISOString().slice(2,10).replaceAll('-','')+'-'+Math.random().toString(36).slice(2,7).toUpperCase()}
+function createOrder(){
+ const recipient=document.getElementById('recipient').value.trim(), description=document.getElementById('description').value.trim(), price=Number(document.getElementById('price').value);
+ if(!recipient||!description||document.getElementById('price').value===''||!Number.isFinite(price)||price<0){alert('Заполните получателя, описание товара и корректную сумму.');return}
+ const id=newId(), order={id,recipient,description,price,status:'Ожидает выдачи',created:new Date().toISOString(),barcode:'BOX-'+id,qr:'PICKUP:'+id};
+ orders.unshift(order);save();document.getElementById('recipient').value='';document.getElementById('description').value='';document.getElementById('price').value='';
+ document.getElementById('createdResult').innerHTML=`<div class="card"><span class="pill green">Заказ создан</span><h3>${esc(order.id)}</h3><p><b>Получатель:</b> ${esc(recipient)}<br><b>Товар:</b> ${esc(description)}<br><b>Сумма:</b> ${money(price)}</p><h4>QR-код для выдачи</h4><div id="qr" class="codebox"></div><p class="muted">Покажите QR-код клиенту или сохраните изображение.</p><button class="btn secondary" onclick="downloadQR()">Скачать QR-код</button><h4>Штрихкод коробки</h4><div id="barcode" class="codebox"></div><p class="muted">Код коробки: <b>${esc(order.barcode)}</b></p><button class="btn secondary" onclick="printLabel('${order.id}')">Печать этикетки</button></div>`;
+ if(window.QRCode){new QRCode(document.getElementById('qr'),{text:order.qr,width:190,height:190,correctLevel:QRCode.CorrectLevel.M})}else{document.getElementById('qr').textContent=order.qr}
+ drawBarcode(order.barcode,document.getElementById('barcode'));
+}
+function drawBarcode(value,container){
+ let bits='';for(const ch of value){let n=ch.charCodeAt(0);bits+='1';for(let i=6;i>=0;i--)bits+=(n>>i)&1?'1':'0';bits+='0'}
+ bits='1011'+bits+'1101';let x=0,rects='';for(const b of bits){if(b==='1')rects+=`<rect x="${x}" y="0" width="2" height="62" fill="#111"/>`;x+=2}
+ container.innerHTML=`<svg xmlns="http://www.w3.org/2000/svg" width="${x}" height="84" viewBox="0 0 ${x} 84">${rects}<text x="${x/2}" y="78" text-anchor="middle" font-size="10" fill="#111">${esc(value)}</text></svg>`;
+}
+function downloadQR(){const el=document.querySelector('#qr canvas')||document.querySelector('#qr img');if(!el){alert('QR-код пока не готов.');return}let url=el.tagName==='CANVAS'?el.toDataURL('image/png'):el.src;let a=document.createElement('a');a.href=url;a.download='qr-'+(current?.id||'order')+'.png';a.click()}
+function printLabel(id){const o=orders.find(x=>x.id===id);if(!o)return;document.getElementById('printArea').innerHTML=`<h2>Этикетка заказа</h2><h3>${esc(o.id)}</h3><p>Получатель: ${esc(o.recipient)}</p><p>Товар: ${esc(o.description)}</p><p>Сумма: ${money(o.price)}</p><p>Штрихкод коробки: ${esc(o.barcode)}</p><div id="printBarcode"></div>`;drawBarcode(o.barcode,document.getElementById('printBarcode'));document.getElementById('printArea').classList.remove('hidden');window.print();document.getElementById('printArea').classList.add('hidden')}
+function findOrder(){let val=document.getElementById('scanInput').value.trim().toUpperCase();let o=orders.find(x=>x.id.toUpperCase()===val||x.barcode.toUpperCase()===val||x.qr.toUpperCase()===val);if(!o){document.getElementById('issueResult').innerHTML='<p class="notice">Заказ не найден. Проверьте код или статус.</p>';return}current=o;showIssue(o)}
+function showIssue(o){let target=document.getElementById('issueResult');if(o.status!=='Ожидает выдачи'){target.innerHTML=`<p class="notice">Этот заказ уже имеет статус: <b>${esc(o.status)}</b>.</p>`;return}
+target.innerHTML=`<div class="card"><span class="pill amber">${esc(o.status)}</span><h3>${esc(o.id)}</h3><p><b>Получатель:</b> ${esc(o.recipient)}<br><b>Товар:</b> ${esc(o.description)}</p><div class="amount">${money(o.price)}</div><p class="muted">К оплате при выдаче</p><div class="row"><button class="btn green" onclick="completeIssue()">Выдать и провести оплату</button><button class="btn red" onclick="rejectOrder()">Отказаться</button></div><p class="muted" style="font-size:12px">Проведение оплаты здесь — отметка в учебной системе, не списание денег через банк.</p></div>`}
+function completeIssue(){if(!current)return;if(!confirm('Подтвердить получение оплаты '+money(current.price)+' и выдачу заказа?'))return;current.status='Выдан';current.paid=true;current.completed=new Date().toISOString();save();document.getElementById('issueResult').innerHTML='<p class="notice" style="background:#e2f7ed;color:#128354">Заказ отмечен как выданный. Оплата зафиксирована в системе.</p>';document.getElementById('scanInput').value='';current=null}
+function rejectOrder(){if(!current)return;if(!confirm('Покупатель отказался от заказа? Переместить его в возвраты?'))return;current.status='Возврат';current.returned=new Date().toISOString();save();document.getElementById('issueResult').innerHTML='<p class="notice">Заказ перемещён в раздел «Возвраты».</p>';document.getElementById('scanInput').value='';current=null}
+async function startCamera(){if(!navigator.mediaDevices?.getUserMedia){alert('Камера недоступна. Откройте файл через HTTPS-сайт или localhost либо введите код вручную.');return}try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});let v=document.getElementById('video');v.srcObject=stream;v.classList.remove('hidden');await v.play();if('BarcodeDetector'in window){let detector=new BarcodeDetector({formats:['qr_code','code_128','code_39','ean_13','ean_8','upc_a']});scanLoop(detector,v)}else{alert('В этом браузере нет встроенного распознавания штрихкодов. Используйте ручной ввод кода.')}}catch(e){alert('Не удалось открыть камеру: '+e.message)}}
+async function scanLoop(detector,v){if(!stream)return;try{let codes=await detector.detect(v);if(codes.length){document.getElementById('scanInput').value=codes[0].rawValue;findOrder();stopCamera();return}}catch(e){}requestAnimationFrame(()=>scanLoop(detector,v))}
+function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}let v=document.getElementById('video');if(v){v.srcObject=null;v.classList.add('hidden')}}
+function render(){
+ const active=orders.filter(o=>o.status==='Ожидает выдачи'),done=orders.filter(o=>o.status==='Выдан'),ret=orders.filter(o=>o.status==='Возврат');
+ document.getElementById('sActive').textContent=active.length;document.getElementById('sDone').textContent=done.length;document.getElementById('sReturn').textContent=ret.length;
+ document.getElementById('statusSummary').textContent=orders.length?`Ожидают выдачи: ${active.length} · Выданы: ${done.length} · Возвраты: ${ret.length}`:'Пока нет заказов';
+ document.getElementById('orderList').innerHTML=orders.length?orders.map(o=>`<div class="item"><strong>${esc(o.id)} <span class="pill ${o.status==='Выдан'?'green':o.status==='Возврат'?'red':'amber'}">${esc(o.status)}</span></strong>${esc(o.recipient)} · ${esc(o.description)}<br><b>${money(o.price)}</b></div>`).join(''):'Заказов пока нет';
+ document.getElementById('returnList').innerHTML=ret.length?ret.map(o=>`<div class="item"><strong>${esc(o.id)}</strong>${esc(o.recipient)} · ${esc(o.description)}<br>${money(o.price)} <span class="pill red">Возврат</span></div>`).join(''):'Возвратов пока нет';
+}
+function money(n){return new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:2}).format(n)}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function exportData(){let blob=new Blob([JSON.stringify(orders,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pvz-backup.json';a.click();URL.revokeObjectURL(a.href)}
+function clearAll(){if(confirm('Точно удалить все заказы с этого устройства? Это действие нельзя отменить.')){orders=[];save();show('home')}}
+render();
+</script>
+</body></html>
